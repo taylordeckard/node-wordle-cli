@@ -1,0 +1,26 @@
+#@data/values
+---
+pipeline_name: nodejs-pt1
+solution_repo_uri: https://github.com/CXEPI/cx-bootcamp_node-pt1_solution.git
+student_repos:
+- username: test-user
+  uri: https://github.com/CXEPI/cx-bootcamp_node-pt1_assignment.git
+  branch: test-user
+tests:
+- name: "exercise-1"
+  npm_script: test:1
+- name: "exercise-2"
+  npm_script: test:2
+- name: "exercise-3"
+  npm_script: test:3
+- name: "exercise-4"
+  npm_script: test:4
+- name: "exercise-5"
+  npm_script: test:5
+- name: "exercise-6"
+  npm_script: test:6
+- name: "exercise-7"
+  npm_script: test:7
+- name: "exercise-8"
+  npm_script: test:8
+values_file: concourse/main.values.ytt.yaml

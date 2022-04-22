@@ -1,0 +1,135 @@
+#@ load("@ytt:data", "data")
+
+git-creds: &git-creds
+  username: (("www.github.com/swtg-robot.gen".accessToken))
+  password: x-oauth-basic
+
+resources:
+- name: solution-repo 
+  type: git
+  icon: github
+  source:
+    <<: *git-creds
+    uri: #@ data.values.solution_repo_uri
+    branch: main
+#@ if data.values.student_repos:
+#@ for i in range(len(data.values.student_repos)):
+#@ repo = data.values.student_repos[i]
+- name: #@ "{}-solution-repo".format(repo.username)
+  type: git
+  icon: github
+  source:
+    <<: *git-creds
+    uri: #@ repo.uri
+    branch: #@ repo.branch
+#@ end
+#@ end
+
+jobs:
+- name: set-self
+  plan:
+  - get: solution-repo
+    trigger: true
+  - task: render-pipeline
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: taylorsilva/carvel-ytt
+      inputs:
+      - name: solution-repo
+      outputs:
+      - name: pipeline
+      run:
+        path: sh
+        args:
+        - -cx
+        #@yaml/text-templated-strings
+        - |
+          ytt -f ./solution-repo/(@= data.values.values_file @) \
+            -f ./solution-repo/concourse/main.ytt.yaml \
+            -f ./solution-repo/concourse/main.schema.ytt.yaml \
+            > self.yaml
+          mv self.yaml ./pipeline/
+  - set_pipeline: #@ data.values.pipeline_name
+    file: pipeline/self.yaml
+#@ for i in range(len(data.values.student_repos)):
+#@ repo = data.values.student_repos[i]
+- name: #@ "check-{}-solution".format(repo.username)
+  plan:
+  - get: solution-repo
+    passed: [set-self]
+    trigger: true
+  - get: #@ "{}-solution-repo".format(repo.username)
+    trigger: true
+  - task: install-deps
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: #@ data.values.nodejs.image.repo
+          tag: #@ data.values.nodejs.image.tag
+      inputs:
+      - name: #@ "{}-solution-repo".format(repo.username)
+      outputs:
+      - name: #@ "{}-solution-repo-wdeps".format(repo.username)
+      run:
+        path: ash
+        args:
+        - -c
+        #@yaml/text-templated-strings
+        - |
+          set -e
+          cd (@= "{}-solution-repo".format(repo.username) @)
+          npm i
+          cd ..
+          cp -r (@= "{}-solution-repo/.".format(repo.username) @) (@= "{}-solution-repo-wdeps".format(repo.username) @)
+  - in_parallel:
+      steps:
+      #@ for i in range(len(data.values.tests)):
+      #@ test = data.values.tests[i]
+      - task: #@ "check-{}".format(test.name)
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: #@ data.values.nodejs.image.repo
+              tag: #@ data.values.nodejs.image.tag
+          inputs:
+          - name: #@ "{}-solution-repo-wdeps".format(repo.username)
+          - name: #@ "{}-solution-repo".format(repo.username)
+          run:
+            path: ash
+            args:
+            - -c
+            #@yaml/text-templated-strings
+            - |
+              cd (@= "{}-solution-repo-wdeps".format(repo.username) @)
+              
+              # Use tests from the solution-repo
+              rm -fr (@= "{}-solution-repo-wdeps/tests/*".format(repo.username) @)
+              cp -r (@= "../{}-solution-repo/tests/*".format(repo.username) @) ./tests
+              npm run (@= test.npm_script @)
+      #@ end
+      - task: lint
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: #@ data.values.nodejs.image.repo
+              tag: #@ data.values.nodejs.image.tag
+          inputs:
+          - name: #@ "{}-solution-repo-wdeps".format(repo.username)
+          run:
+            path: ash
+            args:
+            - -c
+            #@yaml/text-templated-strings
+            - |
+              cd (@= "{}-solution-repo-wdeps".format(repo.username) @)
+              npm run lint
+#@ end

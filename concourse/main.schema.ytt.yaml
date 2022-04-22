@@ -1,0 +1,16 @@
+#@data/values-schema
+---
+nodejs:
+  image:
+    repo: containers.cisco.com/iceberg/node
+    tag: 14-alpine
+pipeline_name: ""
+solution_repo_uri: "" 
+student_repos:
+- branch: ""
+  username: ""
+  uri: ""
+tests:
+- name: ""
+  npm_script: ""
+values_file: ""

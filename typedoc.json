@@ -1,0 +1,10 @@
+{
+  "entryPoints": [
+    "src/classes/index.ts",
+    "src/commands/index.ts",
+    "src/const.ts",
+    "src/types/index.ts",
+    "src/utils/index.ts"
+  ],
+  "out": "docs"
+}
